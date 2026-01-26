@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="StreetFood_App.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:StreetFood_App.Pages"
+    Title="StreetFood_App">
+    <TabBar>
+        <Tab Title="Trang chủ" Icon="home.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:MainPage}" />
+        </Tab>
+
+        <Tab Title="Bản đồ" Icon="map.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:MapPage}" />
+        </Tab>
+    </TabBar>
+
+</Shell>

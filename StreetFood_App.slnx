@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="StreetFood_App/StreetFood_App.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+  <Project Path="StreetFood_CMS/StreetFood_CMS.csproj" Id="135a3f30-77d7-4046-af0b-fd9779d542dd" />
+  <Project Path="StreetFood_Shared/StreetFood_Shared.csproj" Id="d4fefb29-3bb0-4558-acfe-078d3af8e6e3" />
+</Solution>
