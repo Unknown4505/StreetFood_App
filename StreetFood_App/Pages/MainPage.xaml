@@ -20,7 +20,9 @@
                             <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFill"/>
                             <StackLayout Grid.Column="1" Padding="10" VerticalOptions="Center">
                                 <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold"/>
-                                <Label Text="{Binding Price}" FontSize="16" TextColor="Orange"/>
+                                <Label Text="{Binding Price, StringFormat='{0:N0} đ'}" 
+                                TextColor="Orange" 
+                                FontAttributes="Bold" />
                             </StackLayout>
                         </Grid>
                     </Frame>

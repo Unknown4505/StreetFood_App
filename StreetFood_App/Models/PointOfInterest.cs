@@ -7,14 +7,17 @@ public class PointOfInterest
     [PrimaryKey, AutoIncrement]
     public int Id { get; set; }
 
-    public string Name { get; set; }        // Tên quán/địa điểm
-    public string Description { get; set; } // Nội dung thuyết minh text
-    public string ImageUrl { get; set; }    // Hình ảnh
+    [Indexed]
+    public int CategoryId { get; set; }
 
-    // Đã xóa ở đây
+    // --- THÊM DÒNG NÀY ĐỂ HẾT LỖI ---
+    public string Name { get; set; }
+    // --------------------------------
+
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public double Radius { get; set; } = 20.0;
 
-    public double Radius { get; set; } = 20.0; // Bán kính kích hoạt (mét)
-    public string AudioFileName { get; set; }  // Tên file mp3 hoặc nội dung TTS 
+    public string ImageThumbnail { get; set; }
+    public string Status { get; set; } = "Active";
 }
