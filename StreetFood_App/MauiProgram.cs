@@ -1,12 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
-using CommunityToolkit.Maui; // keep this for compile-time APIs
+using CommunityToolkit.Maui;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using StreetFood_App.Services;
 using StreetFood_App.ViewModels;
 using StreetFood_App.Pages;
+using StreetFood_App.Models;
 using System;
 using System.Diagnostics;
+using SkiaSharp.Views.Maui.Controls.Hosting;
+using ZXing.Net.Maui;
+using ZXing.Net.Maui.Controls;
 
 namespace StreetFood_App;
 
@@ -16,24 +20,13 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder
-            .UseMauiApp<App>();
+            .UseMauiApp<App>()
+            .UseSkiaSharp()
+            .UseBarcodeReader()
+            .UseMauiCommunityToolkit();
 
-        // Guard around CommunityToolkit registration to prevent startup crash if toolkit assemblies mismatch at runtime
-        try
-        {
-            builder.UseMauiCommunityToolkit();
-        }
-        catch (TypeLoadException tle)
-        {
-            Debug.WriteLine("CommunityToolkit registration failed: " + tle.Message);
-            Debug.WriteLine("Action: Ensure CommunityToolkit.Maui and CommunityToolkit.Maui.Core package versions match, then Clean/Rebuild and redeploy.");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine("Unexpected error registering CommunityToolkit: " + ex);
-        }
 
-        // .UseMauiMaps() // <-- Kích hoạt bản đồ
+        // (Các đoạn configure fonts giữ nguyên)
         builder.ConfigureFonts(fonts =>
         {
             fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -42,7 +35,8 @@ public static class MauiProgram
 
         // Đăng ký Services
         builder.Services.AddSingleton<DatabaseService>();
-        builder.Services.AddSingleton<AudioService>();
+        
+
         builder.Services.AddSingleton<LocationService>();
 
         // Đăng ký ViewModels & Pages
@@ -53,6 +47,7 @@ public static class MauiProgram
         builder.Services.AddTransient<MapPage>();
 
         builder.Services.AddTransient<DetailPage>();
+        builder.Services.AddTransient<ScanPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

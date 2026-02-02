@@ -1,45 +1,50 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Maui.Controls.Maps;
-using Microsoft.Maui.Maps;
 using System.Collections.ObjectModel;
 using StreetFood_App.Models;
+using StreetFood_App.Services;
 
 namespace StreetFood_App.ViewModels;
 
 public partial class MapViewModel : ObservableObject
 {
-    public ObservableCollection<Pin> Pins { get; set; } = new ObservableCollection<Pin>();
+    // 1. Service để lấy dữ liệu từ SQLite
+    private readonly DatabaseService _dbService;
 
-    public MapViewModel()
+    // 2. Danh sách dữ liệu chuẩn để View (MapPage) sử dụng
+    // Dùng ObservableCollection để khi thêm/xóa thì UI tự cập nhật
+    [ObservableProperty]
+    ObservableCollection<PointOfInterest> pois = new();
+
+    // 3. Constructor: Nhận DatabaseService từ Dependency Injection
+    public MapViewModel(DatabaseService dbService)
     {
-        LoadPins();
+        _dbService = dbService;
     }
 
-    // Hàm tạo giả dữ liệu các quán ốc trên bản đồ
-    void LoadPins()
+    // 4. Command để load dữ liệu (Bất đồng bộ)
+    // Page sẽ gọi lệnh này khi "OnAppearing"
+    [RelayCommand]
+    public async Task LoadPoisAsync()
     {
-        // Giả sử đây là tọa độ khu phố ốc Vĩnh Khánh (Quận 4)
-        var vinhKhanhLocation = new Location(10.7607, 106.7009);
-
-        // Thêm quán ốc ví dụ
-        var pin1 = new Pin
+        try
         {
-            Label = "Ốc Oanh",
-            Address = "534 Vĩnh Khánh, Q.4",
-            Type = PinType.Place,
-            Location = new Location(10.7607, 106.7009)
-        };
+            // Lấy danh sách từ Database thật
+            var list = await _dbService.GetPOIsAsync();
 
-        var pin2 = new Pin
+            // Xóa danh sách cũ (để tránh trùng lặp nếu load lại)
+            Pois.Clear();
+
+            // Thêm dữ liệu mới vào
+            foreach (var item in list)
+            {
+                Pois.Add(item);
+            }
+        }
+        catch (Exception ex)
         {
-            Label = "Ốc Thảo",
-            Address = "383 Vĩnh Khánh, Q.4",
-            Type = PinType.Place,
-            Location = new Location(10.7615, 106.7015)
-        };
-
-        Pins.Add(pin1);
-        Pins.Add(pin2);
+            // Ghi log lỗi nếu có vấn đề về Database
+            System.Diagnostics.Debug.WriteLine($"Lỗi load Map: {ex.Message}");
+        }
     }
 }

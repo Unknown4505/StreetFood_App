@@ -1,13 +1,115 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="StreetFood_App.Pages.DetailPage" 
-             Title="Detail Page">
+             x:Class="StreetFood_App.Pages.DetailPage"
+             Title="Chi tiết quán ăn"
+             BackgroundColor="#F5F5F5">
 
-    <VerticalStackLayout>
-        <Label 
-            Text="Đây là trang Chi Tiết (Detail Page)"
-            VerticalOptions="Center" 
-            HorizontalOptions="Center" />
-    </VerticalStackLayout>
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+
+            <Image Source="{Binding SelectedPoi.ImageThumbnail}" 
+                   Aspect="AspectFill"
+                   HeightRequest="250"
+                   BackgroundColor="LightGray"
+                   HorizontalOptions="Fill"/>
+
+            <Frame Margin="15,-40,15,0" Padding="20" CornerRadius="15" BackgroundColor="White" HasShadow="True">
+                <VerticalStackLayout Spacing="10">
+
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0" Text="{Binding SelectedPoi.Name}" FontSize="22" FontAttributes="Bold" TextColor="#333"/>
+                        <Label Grid.Column="1" Text="⭐ 4.8" TextColor="#FBC02D" FontAttributes="Bold" FontSize="16"/>
+                    </Grid>
+
+                    <Label Text="📍 Khu Vĩnh Khánh, Q4" TextColor="Gray" FontSize="14"/>
+
+                    <Label Text="{Binding SelectedPoi.AveragePrice, StringFormat='Giá khoảng: {0:N0} đ'}" 
+                           TextColor="#2196F3" FontSize="13" FontAttributes="Bold"/>
+
+                    <BoxView HeightRequest="1" Color="#EEEEEE" Margin="0,5"/>
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,5">
+
+                        <Button x:Name="BtnSpeak"
+                                Grid.Column="0" 
+                                Text="🔊 Nghe" 
+                                Clicked="OnSpeakClicked"
+                                BackgroundColor="#E3F2FD" 
+                                TextColor="#1565C0" 
+                                FontAttributes="Bold" 
+                                CornerRadius="12" 
+                                HeightRequest="45" 
+                                FontSize="12"/>
+
+                        <Button x:Name="BtnFavorite" 
+                                Grid.Column="1"
+                                Text="🤍 Thích" 
+                                Clicked="OnFavoriteClicked"
+                                BackgroundColor="#FFEBEE" 
+                                TextColor="#C62828" 
+                                FontAttributes="Bold" 
+                                CornerRadius="12" 
+                                HeightRequest="45" 
+                                FontSize="12"/>
+
+                        <Button x:Name="BtnRate" 
+                                Grid.Column="2"
+                                Text="⭐ Chấm điểm" 
+                                Clicked="OnRateClicked"
+                                BackgroundColor="#FFF8E1" 
+                                TextColor="#FBC02D" 
+                                FontAttributes="Bold" 
+                                CornerRadius="12" 
+                                HeightRequest="45" 
+                                FontSize="12"/>
+                    </Grid>
+
+                    <Label x:Name="LblStatus" 
+                           Text="Nhấn loa để nghe thuyết minh" 
+                           TextColor="Gray" FontSize="12" HorizontalOptions="Center"/>
+
+                    <Label x:Name="LblUserRating" 
+                           Text="" 
+                           TextColor="#F57F17" FontSize="12" HorizontalOptions="Center" FontAttributes="Italic"/>
+
+                    <Button Text="🗺️ Dẫn đường đến quán"
+                            Clicked="OnDirectionsClicked"
+                            BackgroundColor="#E8F5E9" 
+                            TextColor="#2E7D32"
+                            HeightRequest="45" 
+                            CornerRadius="10" 
+                            FontAttributes="Bold"
+                            Margin="0,10,0,0"/>
+
+                    <Label Text="Giới thiệu:" FontAttributes="Bold" TextColor="#333" Margin="0,5,0,0"/>
+                    <Label Text="{Binding SelectedPoi.Description}" TextColor="#555" FontSize="14"/>
+
+                </VerticalStackLayout>
+            </Frame>
+
+            <Label Text="MENU MÓN NGON" 
+                   FontSize="18" FontAttributes="Bold" TextColor="#D32F2F" 
+                   Margin="20,20,20,10"/>
+
+            <VerticalStackLayout x:Name="MenuContainer" Spacing="10" Margin="15,0,15,20">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Padding="10" CornerRadius="10" BackgroundColor="White" HasShadow="False" BorderColor="#E0E0E0">
+                            <Grid ColumnDefinitions="90, *">
+                                <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFill" HeightRequest="80" WidthRequest="80" BackgroundColor="LightGray"/>
+
+                                <VerticalStackLayout Grid.Column="1" Padding="10,0,0,0" VerticalOptions="Center" Spacing="5">
+                                    <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold" TextColor="#333"/>
+                                    <Label Text="{Binding Description}" FontSize="12" TextColor="Gray" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding Price, StringFormat='{0:N0} đ'}" TextColor="#D32F2F" FontAttributes="Bold" FontSize="15"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>

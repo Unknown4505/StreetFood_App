@@ -4,26 +4,21 @@ namespace StreetFood_App;
 
 public partial class App : Application
 {
-    // Tạo biến để lưu Service dùng sau này
-    private readonly DatabaseService _dbService;
+    // [SỬA 1] Không cần biến _dbService ở đây nữa
+    // private readonly DatabaseService _dbService; 
 
     public App(DatabaseService dbService)
     {
         InitializeComponent();
-
-        // Lưu service vào biến
-        _dbService = dbService;
-
-        // XÓA DÒNG NÀY: MainPage = new AppShell(); (Đây là nguyên nhân gây lỗi)
+        // _dbService = dbService; // [SỬA 2] Bỏ dòng này luôn
     }
 
-    // GHI ĐÈ HÀM TẠO CỬA SỔ (Cách chuẩn của .NET 9)
     protected override Window CreateWindow(IActivationState activationState)
     {
-        // 1. Gọi hàm tạo dữ liệu mẫu (Chạy ngầm khi cửa sổ được tạo)
-        Task.Run(async () => await _dbService.AddSampleDataAsync());
+        // [SỬA 3 - QUAN TRỌNG NHẤT] 
+        // XÓA DÒNG NÀY ĐI: Task.Run(async () => await _dbService.SeedDataAsync());
+        // Lý do: HomeViewModel đã lo việc này rồi. Để lại là bị xung đột gây sập App.
 
-        // 2. Trả về cửa sổ mới chứa AppShell (Giao diện chính)
         return new Window(new AppShell());
     }
 }

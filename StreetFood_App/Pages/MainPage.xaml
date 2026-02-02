@@ -3,31 +3,164 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:StreetFood_App.ViewModels"
              x:Class="StreetFood_App.Pages.MainPage"
-             Title="Vĩnh Khánh Food">
+             Title="Street Food Quận 4"
+             xmlns:local="clr-namespace:StreetFood_App.Pages"
+             BackgroundColor="#F5F5F5">
+    <Grid>
+        <Grid RowDefinitions="Auto, *">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnBackgroundClicked"/>
+            </Grid.GestureRecognizers>
 
-    <ContentPage.BindingContext>
-        <vm:HomeViewModel />
-    </ContentPage.BindingContext>
+            <VerticalStackLayout Grid.Row="0" Padding="15" Spacing="10" BackgroundColor="White">
+                <VerticalStackLayout.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackgroundClicked"/>
+                </VerticalStackLayout.GestureRecognizers>
 
-    <Grid RowDefinitions="Auto, *">
-        <Label Text="🔥 MENU HÔM NAY" FontSize="24" FontAttributes="Bold" TextColor="#D32F2F" Padding="15" HorizontalOptions="Center"/>
+                <Label Text="🔥 QUÁN HOT HÔM NAY" FontSize="22" FontAttributes="Bold" TextColor="#D32F2F"/>
 
-        <CollectionView Grid.Row="1" ItemsSource="{Binding Foods}">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Frame Margin="10" Padding="0" CornerRadius="12" HeightRequest="100" HasShadow="True">
-                        <Grid ColumnDefinitions="100, *">
-                            <Image Grid.Column="0" Source="{Binding ImageUrl}" Aspect="AspectFill"/>
-                            <StackLayout Grid.Column="1" Padding="10" VerticalOptions="Center">
-                                <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold"/>
-                                <Label Text="{Binding Price, StringFormat='{0:N0} đ'}" 
-                                TextColor="Orange" 
-                                FontAttributes="Bold" />
-                            </StackLayout>
-                        </Grid>
+                <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="10">
+
+                    <Frame Grid.Column="0" Padding="0" CornerRadius="10" HasShadow="False" BorderColor="#E0E0E0" HeightRequest="50" BackgroundColor="#F5F5F5">
+                        <SearchBar x:Name="MySearchBar" 
+                                   Placeholder="Tìm quán, món ăn..." 
+                                   Text="{Binding SearchText}" 
+                                   SearchButtonPressed="OnSearchButtonPressed" 
+                                   VerticalOptions="Center" 
+                                   BackgroundColor="Transparent"/>
                     </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+
+                    <Button Grid.Column="1"
+                            Text="📷"
+                            FontSize="22"
+                            TextColor="White"
+                            BackgroundColor="#2196F3"
+                            CornerRadius="10"
+                            HeightRequest="50"
+                            WidthRequest="50"
+                            Padding="0"
+                            Clicked="OnScanClicked"/>
+
+                    <Button Grid.Column="2"
+                            Text="🌪️"
+                            FontSize="22"
+                            TextColor="#555"
+                            BackgroundColor="White"
+                            BorderColor="#E0E0E0"
+                            BorderWidth="1"
+                            CornerRadius="10"
+                            HeightRequest="50"
+                            WidthRequest="50"
+                            Padding="0"
+                            Command="{Binding ToggleFilterCommand}"/>
+                </Grid>
+            </VerticalStackLayout>
+
+            <CollectionView Grid.Row="1" ItemsSource="{Binding HotRestaurants}" SelectionMode="None">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="20"/>
+                </CollectionView.ItemsLayout>
+                <CollectionView.Header>
+                    <BoxView HeightRequest="15" Color="Transparent"/>
+                </CollectionView.Header>
+                <CollectionView.Footer>
+                    <BoxView HeightRequest="15" Color="Transparent"/>
+                </CollectionView.Footer>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="15,0,15,0" Padding="0" CornerRadius="15" HasShadow="True" BorderColor="Transparent" HeightRequest="240" BackgroundColor="White">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=GoToDetailCommand}" CommandParameter="{Binding .}"/>
+                            </Frame.GestureRecognizers>
+                            <Grid RowDefinitions="*, Auto">
+                                <Image Grid.Row="0" Source="{Binding ImageThumbnail}" Aspect="AspectFill" HeightRequest="160" HorizontalOptions="Fill"/>
+
+                                <VerticalStackLayout Grid.Row="1" Padding="15">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <Label Grid.Column="0" Text="{Binding Name}" FontSize="18" FontAttributes="Bold" TextColor="#333"/>
+                                        <Label Grid.Column="1" Text="⭐ 4.8" TextColor="#FBC02D" FontAttributes="Bold"/>
+                                    </Grid>
+                                    <Label Text="{Binding AveragePrice, StringFormat='💰 ~{0:N0} đ'}" FontSize="13" TextColor="#D32F2F" Margin="0,5,0,0"/>
+                                    <Label Text="📍 Khu ẩm thực Vĩnh Khánh" FontSize="13" TextColor="Gray"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <Grid IsVisible="{Binding IsFilterVisible}" BackgroundColor="#80000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ToggleFilterCommand}"/>
+            </Grid.GestureRecognizers>
+
+            <Frame VerticalOptions="End" CornerRadius="20" BackgroundColor="White" Padding="20" HasShadow="True" Margin="0,0,0,-20">
+                <VerticalStackLayout Spacing="20" Padding="0,0,0,30">
+
+                    <Label Text="BỘ LỌC TÌM KIẾM" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" TextColor="#333"/>
+                    <BoxView HeightRequest="1" Color="#EEEEEE"/>
+
+                    <VerticalStackLayout Spacing="5">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Label Text="Giá tối đa:" FontAttributes="Bold" TextColor="#333"/>
+                            <Label Text="{Binding PriceDisplay}" TextColor="#D32F2F" FontAttributes="Bold" FontSize="16" Grid.Column="1"/>
+                        </Grid>
+                        <Slider Minimum="0" Maximum="500000" Value="{Binding CurrentMaxPrice}" MinimumTrackColor="#D32F2F" ThumbColor="#D32F2F"/>
+                        <Grid ColumnDefinitions="Auto, * , Auto">
+                            <Label Text="0đ" FontSize="12" TextColor="Gray" Grid.Column="0"/>
+                            <Label Text="500k+" FontSize="12" TextColor="Gray" Grid.Column="2"/>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Chọn món (Có thể chọn nhiều):" FontAttributes="Bold" TextColor="#333"/>
+
+                        <FlexLayout BindableLayout.ItemsSource="{Binding FilterCategories}" Wrap="Wrap" JustifyContent="Start" AlignItems="Start" Direction="Row">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame Padding="15,8" CornerRadius="20" Margin="0,0,10,10" HasShadow="False" BorderColor="Transparent">
+                                        <Frame.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:HomeViewModel}}, Path=ToggleCategoryCommand}" CommandParameter="{Binding .}"/>
+                                        </Frame.GestureRecognizers>
+
+                                        <Frame.Triggers>
+                                            <DataTrigger TargetType="Frame" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#FFEBEE"/>
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Frame" Binding="{Binding IsSelected}" Value="False">
+                                                <Setter Property="BackgroundColor" Value="#F5F5F5"/>
+                                            </DataTrigger>
+                                        </Frame.Triggers>
+
+                                        <Label Text="{Binding Name}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextColor" Value="#D32F2F"/>
+                                                    <Setter Property="FontAttributes" Value="Bold"/>
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsSelected}" Value="False">
+                                                    <Setter Property="TextColor" Value="#666"/>
+                                                    <Setter Property="FontAttributes" Value="None"/>
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Frame>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                    </VerticalStackLayout>
+
+                    <BoxView HeightRequest="1" Color="#EEEEEE"/>
+
+                    <Grid ColumnDefinitions="*, *" ColumnSpacing="15">
+                        <Button Text="Hủy / Reset" Command="{Binding ResetFilterCommand}" BackgroundColor="#EEEEEE" TextColor="#333" CornerRadius="25"/>
+                        <Button Text="ÁP DỤNG" Command="{Binding ApplyFiltersCommand}" BackgroundColor="#D32F2F" TextColor="White" FontAttributes="Bold" CornerRadius="25"/>
+                    </Grid>
+
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
     </Grid>
 </ContentPage>
