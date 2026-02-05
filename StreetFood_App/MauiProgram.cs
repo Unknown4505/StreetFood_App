@@ -11,6 +11,7 @@ using System.Diagnostics;
 using SkiaSharp.Views.Maui.Controls.Hosting;
 using ZXing.Net.Maui;
 using ZXing.Net.Maui.Controls;
+using Plugin.Maui.Audio;
 
 namespace StreetFood_App;
 
@@ -25,21 +26,29 @@ public static class MauiProgram
             .UseBarcodeReader()
             .UseMauiCommunityToolkit();
 
-
-        // (Các đoạn configure fonts giữ nguyên)
+        // Configure Fonts
         builder.ConfigureFonts(fonts =>
         {
             fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
             fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
         });
 
-        // Đăng ký Services
+        // 1. Đăng ký các Service chung
         builder.Services.AddSingleton<DatabaseService>();
-        
-
         builder.Services.AddSingleton<LocationService>();
+        builder.Services.AddSingleton(AudioManager.Current);
 
-        // Đăng ký ViewModels & Pages
+        // =================================================================
+        // [QUAN TRỌNG - PHẦN CÒN THIẾU]
+        // Đăng ký Service chạy ngầm cho Android (Dependency Injection)
+        // Dòng này giúp MainPage tìm thấy AndroidBackgroundService mà không bị Null
+        // =================================================================
+#if ANDROID
+        builder.Services.AddSingleton<IBackgroundService, StreetFood_App.Platforms.Android.AndroidBackgroundService>();
+#endif
+        // =================================================================
+
+        // 2. Đăng ký ViewModels & Pages
         builder.Services.AddSingleton<HomeViewModel>();
         builder.Services.AddSingleton<MainPage>();
 

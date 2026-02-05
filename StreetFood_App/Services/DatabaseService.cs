@@ -11,8 +11,8 @@ public class DatabaseService
     {
         if (_database is not null) return;
 
-        // [QUAN TRỌNG] Đổi tên DB thành v7 để chắc chắn tạo mới
-        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "StreetFood_Final_v7.db3");
+        // [QUAN TRỌNG] Đổi thành v8 để tạo lại bảng có cột AudioFile
+        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "StreetFood_Final_v8.db3");
 
         _database = new SQLiteAsyncConnection(dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
 
@@ -45,7 +45,7 @@ public class DatabaseService
         return await _database.Table<PointOfInterest>().Where(p => p.IsFavorite).ToListAsync();
     }
 
-    // --- HÀM TẠO DỮ LIỆU MẪU (Đã thay link online bằng ảnh offline) ---
+    // --- HÀM TẠO DỮ LIỆU MẪU ---
     public async Task SeedDataAsync()
     {
         await Init();
@@ -54,10 +54,10 @@ public class DatabaseService
         if (await _database.Table<PointOfInterest>().CountAsync() > 0) return;
 
         // 1. Tạo Danh Mục
-        // Lưu ý: Các file icon này cũng cần có trong Resources/Images (nếu chưa có thì dùng tạm default_food.png)
-        var catSeafood = new Category { Name = "Hải sản", Icon = "default_food.png" };
-        var catSnack = new Category { Name = "Ăn vặt", Icon = "default_food.png" };
-        var catHotpot = new Category { Name = "Lẩu", Icon = "default_food.png" };
+        // Lưu ý: Dùng tên ảnh an toàn "img_food_placeholder.png"
+        var catSeafood = new Category { Name = "Hải sản", Icon = "img_food_placeholder.png" };
+        var catSnack = new Category { Name = "Ăn vặt", Icon = "img_food_placeholder.png" };
+        var catHotpot = new Category { Name = "Lẩu", Icon = "img_food_placeholder.png" };
         await _database.InsertAllAsync(new List<Category> { catSeafood, catSnack, catHotpot });
 
         // 2. Tạo Quán Ăn
@@ -68,8 +68,10 @@ public class DatabaseService
                 Name = "Ốc Oanh",
                 CategoryId = catSeafood.Id,
                 Description = "Quán ốc nổi tiếng nhất khu Vĩnh Khánh. Ốc hương trứng muối là món 'best seller'.",
-                // [FIX ẢNH] Dùng ảnh offline (đã thêm vào Resources/Images)
-                ImageThumbnail = "default_food.png",
+
+                ImageThumbnail = "default_food.png", // Ảnh offline
+                AudioFile = "intro.mp3",             // [MỚI] Audio offline (File này phải nằm trong Resources/Raw)
+                
                 AveragePrice = 150000,
                 Latitude = 10.7626, Longitude = 106.7020,
                 IsFavorite = false, UserRating = 5
@@ -79,8 +81,10 @@ public class DatabaseService
                 Name = "Súp Cua Hạnh",
                 CategoryId = catSnack.Id,
                 Description = "Súp cua óc heo chất lượng, đặc biệt nhiều topping, ăn là ghiền.",
-                // [FIX ẢNH]
+
                 ImageThumbnail = "default_food.png",
+                AudioFile = "intro.mp3",             // [MỚI] Tạm thời dùng chung 1 file nhạc demo
+                
                 AveragePrice = 35000,
                 Latitude = 10.7620, Longitude = 106.7015,
                 IsFavorite = true, UserRating = 4
@@ -90,8 +94,10 @@ public class DatabaseService
                 Name = "Lẩu Bò Nhà Gỗ",
                 CategoryId = catHotpot.Id,
                 Description = "Lẩu bò đậm đà hương vị Đà Lạt giữa lòng Sài Gòn.",
-                // [FIX ẢNH]
+
                 ImageThumbnail = "default_food.png",
+                AudioFile = "intro.mp3",             // [MỚI]
+                
                 AveragePrice = 200000,
                 Latitude = 10.7630, Longitude = 106.7030,
                 IsFavorite = false, UserRating = 0

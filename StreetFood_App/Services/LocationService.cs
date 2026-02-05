@@ -1,47 +1,28 @@
-﻿using Microsoft.Maui.Devices.Sensors;
-
-namespace StreetFood_App.Services;
+﻿namespace StreetFood_App.Services;
 
 public class LocationService
 {
-    // 1. Hàm lấy vị trí hiện tại (Giữ nguyên logic cũ nhưng gọn hơn)
     public async Task<Location> GetCurrentLocation()
     {
         try
         {
-            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-            if (status != PermissionStatus.Granted)
-            {
-                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
+            // [TỐI ƯU PIN] Cấu hình lấy vị trí
+            // - Accuracy.High: Đủ chính xác cho du lịch (10-20m), không tốn pin như Best
+            // - Timeout 5s: Nếu 5s không bắt được thì bỏ qua, tránh treo GPS lâu
+            var request = new GeolocationRequest(GeolocationAccuracy.High, TimeSpan.FromSeconds(5));
 
-            if (status != PermissionStatus.Granted) return null;
-
-            // Lấy vị trí nhanh (LastKnown) trước
-            var location = await Geolocation.Default.GetLastKnownLocationAsync();
-
-            // Nếu không có, mới bắt buộc lấy vị trí chính xác (tốn pin hơn chút)
-            if (location == null)
-            {
-                var request = new GeolocationRequest(GeolocationAccuracy.High, TimeSpan.FromSeconds(10));
-                location = await Geolocation.Default.GetLocationAsync(request);
-            }
-            return location;
+            return await Geolocation.Default.GetLocationAsync(request);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Lỗi GPS: {ex.Message}");
+            // Nếu lỗi (tắt GPS, không có quyền...) thì trả về null để App xử lý sau
             return null;
         }
     }
 
-    // 2. [MỚI] Hàm tính khoảng cách giữa 2 điểm (Trả về ki-lô-mét)
+    // Hàm tính khoảng cách giữ nguyên
     public double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
     {
-        var location1 = new Location(lat1, lon1);
-        var location2 = new Location(lat2, lon2);
-
-        // Dùng hàm có sẵn của MAUI để tính cho chính xác nhất
-        return Location.CalculateDistance(location1, location2, DistanceUnits.Kilometers);
+        return Location.CalculateDistance(lat1, lon1, lat2, lon2, DistanceUnits.Kilometers);
     }
 }

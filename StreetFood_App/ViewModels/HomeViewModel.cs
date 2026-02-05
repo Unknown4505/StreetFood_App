@@ -11,7 +11,7 @@ public partial class HomeViewModel : ObservableObject
 {
     private readonly DatabaseService _dbService;
 
-    // List gốc lưu tất cả dữ liệu (để khi tìm kiếm thì lọc từ đây)
+    // List gốc lưu tất cả dữ liệu
     private List<PointOfInterest> _allPois = new();
 
     // List hiển thị lên màn hình (đã qua lọc)
@@ -34,7 +34,6 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     double currentMaxPrice = 500000;
 
-    // Text hiển thị giá (Binding lên UI)
     public string PriceDisplay => string.Format("{0:N0} đ", CurrentMaxPrice);
 
     public HomeViewModel(DatabaseService dbService)
@@ -44,25 +43,19 @@ public partial class HomeViewModel : ObservableObject
         // Khởi tạo các danh mục
         FilterCategories = new ObservableCollection<SelectableItem>
         {
-            new SelectableItem { Name = "Tất cả", Value = "", IsSelected = true }, // [FIX] Thêm nút tất cả
+            new SelectableItem { Name = "Tất cả", Value = "", IsSelected = true },
             new SelectableItem { Name = "🐚 Ốc", Value = "Ốc", IsSelected = false },
             new SelectableItem { Name = "🍲 Lẩu", Value = "Lẩu", IsSelected = false },
             new SelectableItem { Name = "🍢 Vặt", Value = "Vặt", IsSelected = false },
             new SelectableItem { Name = "🍰 Bánh", Value = "Bánh", IsSelected = false }
         };
-
-        // [FIX 1] BỎ Task.Run ở Constructor đi. 
-        // Constructor chỉ nên khởi tạo biến, không nên chạy tác vụ nặng/async.
-        // Việc load dữ liệu sẽ chuyển sang hàm InitializeAsync.
     }
 
-    // [FIX 2] Hàm khởi tạo an toàn - Gọi từ MainPage.OnAppearing
     [RelayCommand]
     public async Task InitializeAsync()
     {
         try
         {
-            // Kiểm tra DB trước, chỉ tạo data mẫu nếu DB đang trống
             var checkData = await _dbService.GetPOIsAsync();
             if (checkData.Count == 0)
             {
@@ -74,7 +67,6 @@ public partial class HomeViewModel : ObservableObject
                 _allPois = checkData;
             }
 
-            // Hiển thị lên giao diện
             ApplyFilters();
         }
         catch (Exception ex)
@@ -83,10 +75,8 @@ public partial class HomeViewModel : ObservableObject
         }
     }
 
-    // Hook khi SearchText thay đổi
+    // Hook khi thay đổi Search/Price
     partial void OnSearchTextChanged(string value) => ApplyFilters();
-
-    // Hook khi Giá thay đổi
     partial void OnCurrentMaxPriceChanged(double value) => OnPropertyChanged(nameof(PriceDisplay));
 
     [RelayCommand]
@@ -96,30 +86,37 @@ public partial class HomeViewModel : ObservableObject
     void ToggleCategory(SelectableItem item)
     {
         if (item == null) return;
-
-        // Logic chọn kiểu Radio Button (Chỉ chọn 1 cái) hoặc Checkbox (Chọn nhiều)
-        // Ở đây tui làm kiểu Toggle đơn giản: Bấm vào thì đổi trạng thái
         item.IsSelected = !item.IsSelected;
+        // ApplyFilters(); 
+    }
 
-        // Gọi lọc ngay lập tức cho mượt
+    // Hàm dùng cho nút "Áp dụng" trên giao diện Filter
+    [RelayCommand]
+    void ConfirmFilter()
+    {
         ApplyFilters();
+        IsFilterVisible = false; // Đóng popup
     }
 
     [RelayCommand]
     void ApplyFilters()
     {
-        // Nếu chưa có dữ liệu thì thôi
         if (_allPois == null) return;
 
         var result = _allPois.AsEnumerable();
 
-        // 1. Lọc theo Text (Dùng ToLower để không phân biệt hoa thường)
+        // 1. Lọc theo Text (Dùng Helper để tìm tiếng Việt không dấu)
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            var keyword = SearchText.ToLower().Trim();
+            // Chuyển từ khóa tìm kiếm sang không dấu
+            var keyword = VietnameseHelper.ConvertToUnSign(SearchText.Trim());
+
             result = result.Where(p =>
-                (p.Name != null && p.Name.ToLower().Contains(keyword)) ||
-                (p.Description != null && p.Description.ToLower().Contains(keyword))
+                // [ĐÃ UPDATE] CHỈ TÌM TRONG TÊN (NAME)
+                (p.Name != null && VietnameseHelper.ConvertToUnSign(p.Name).Contains(keyword))
+
+            // [ĐÃ TẮT] Tắt tìm trong mô tả để tránh tìm nhầm (VD: gõ "oc" không ra "óc heo")
+            // || (p.Description != null && VietnameseHelper.ConvertToUnSign(p.Description).Contains(keyword))
             );
         }
 
@@ -130,21 +127,21 @@ public partial class HomeViewModel : ObservableObject
         }
 
         // 3. Lọc theo Danh mục
-        // [FIX 3] Logic lọc Category chính xác hơn
         var selectedValues = FilterCategories
                             .Where(c => c.IsSelected && !string.IsNullOrEmpty(c.Value))
-                            .Select(c => c.Value.ToLower()) // Đưa về chữ thường
+                            .Select(c => VietnameseHelper.ConvertToUnSign(c.Value))
                             .ToList();
 
         if (selectedValues.Count > 0)
         {
             result = result.Where(p => selectedValues.Any(val =>
-                (p.Name != null && p.Name.ToLower().Contains(val)) ||
-                (p.Description != null && p.Description.ToLower().Contains(val))
+                (p.Name != null && VietnameseHelper.ConvertToUnSign(p.Name).Contains(val))
+            // Với danh mục thì có thể giữ lại tìm trong mô tả hoặc tắt đi tùy bạn, ở đây tui cũng tắt cho đồng bộ
+            // || (p.Description != null && VietnameseHelper.ConvertToUnSign(p.Description).Contains(val))
             ));
         }
 
-        // Cập nhật lên UI (ObservableCollection tự báo cho View biết)
+        // Cập nhật UI
         HotRestaurants.Clear();
         foreach (var item in result)
         {
@@ -159,7 +156,6 @@ public partial class HomeViewModel : ObservableObject
         SearchText = "";
         foreach (var item in FilterCategories)
         {
-            // Reset về mặc định (chỉ chọn nút "Tất cả" nếu có logic đó, hoặc bỏ chọn hết)
             item.IsSelected = (item.Value == "");
         }
         ApplyFilters();

@@ -1,18 +1,16 @@
 ﻿using ZXing.Net.Maui;
 using StreetFood_App.Services;
-using StreetFood_App.Models;
 
 namespace StreetFood_App.Pages;
 
 public partial class ScanPage : ContentPage
 {
-    private readonly DatabaseService _dbService;
     private bool _isScanning = true;
 
-    public ScanPage(DatabaseService dbService)
+    // Không cần DatabaseService nữa vì không cần tra cứu quán
+    public ScanPage()
     {
         InitializeComponent();
-        _dbService = dbService;
 
         MyCamera.Options = new BarcodeReaderOptions
         {
@@ -22,69 +20,38 @@ public partial class ScanPage : ContentPage
         };
     }
 
-    // Sự kiện của Camera thật
     private void Camera_BarcodesDetected(object sender, BarcodeDetectionEventArgs e)
     {
         if (!_isScanning) return;
-
         var first = e.Results?.FirstOrDefault();
         if (first is null) return;
 
-        // Gọi hàm xử lý chung
-        ProcessQrContent(first.Value);
+        // Quét trúng bất cứ mã gì cũng coi là Check-in thành công
+        ProcessCheckIn();
     }
 
-    // [MỚI] Sự kiện của Nút Test (Cheat)
     private void OnFakeScanClicked(object sender, EventArgs e)
     {
         if (!_isScanning) return;
 
-        // Giả vờ như vừa quét được mã "STREETFOOD"
-        ProcessQrContent("STREETFOOD");
+        // Giả vờ quét trúng
+        ProcessCheckIn();
     }
 
-    // --- HÀM XỬ LÝ TRUNG TÂM (Dùng chung cho cả 2 cách) ---
-    private void ProcessQrContent(string qrContent)
+    private void ProcessCheckIn()
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            _isScanning = false; // Dừng quét để xử lý
+            _isScanning = false;
             try { HapticFeedback.Perform(HapticFeedbackType.LongPress); } catch { }
 
-            // =========================================================
-            // CASE 1: QUÉT MÃ CỔNG CHÀO (ACTIVE)
-            // =========================================================
+            // Logic đơn giản: Chào mừng và đưa vào trang chủ
+            await DisplayAlert("🎉 Xin chào!",
+                "Chào mừng bạn đến với Phố Ẩm Thực Vĩnh Khánh!\nHãy bắt đầu hành trình khám phá ẩm thực ngay nào.",
+                "Bắt đầu đi thôi");
 
-            // Logic: Hiện thông báo rồi về trang chủ
-            await DisplayAlert("Xin chào!", "Chào mừng bạn đến với Phố Ẩm Thực Vĩnh Khánh!", "Bắt đầu khám phá");
+            // Chuyển về trang chủ (Reset ngăn xếp điều hướng)
             await Shell.Current.GoToAsync($"//{nameof(MainPage)}");
-            return;
-
-            /* =========================================================
-               CASE 2: QUÉT MÃ TỪNG QUÁN (TẠM ĐÓNG)
-               (Khi nào cần test từng quán thì mở ra và sửa chữ "STREETFOOD" ở trên thành tên quán)
-               =========================================================
-            
-            var allPois = await _dbService.GetPOIsAsync();
-            var foundPoi = allPois.FirstOrDefault(p => p.Name.ToLower().Contains(qrContent.ToLower()) || 
-                                                       p.Id.ToString() == qrContent);
-
-            if (foundPoi != null)
-            {
-                var navParam = new Dictionary<string, object> 
-                { 
-                    { "SelectedPoi", foundPoi },
-                    { "AutoPlay", true } 
-                };
-                await Shell.Current.GoToAsync(nameof(DetailPage), navParam);
-            }
-            else
-            {
-                bool retry = await DisplayAlert("Lỗi", $"Không tìm thấy: {qrContent}", "Thử lại", "Về trang chủ");
-                if (retry) _isScanning = true;
-                else await Shell.Current.GoToAsync($"//{nameof(MainPage)}");
-            }
-            ========================================================= */
         });
     }
 

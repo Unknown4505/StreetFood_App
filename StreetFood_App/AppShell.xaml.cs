@@ -9,99 +9,123 @@ public partial class AppShell : Shell
     private readonly LocationService _locationService;
     private readonly DatabaseService _dbService;
 
-    // Timer để chạy vòng lặp ngầm (Geofence)
-    private IDispatcherTimer _timer;
+    // Timer chạy trên luồng phụ
+    private System.Timers.Timer _timer;
     private bool _isScanning = false;
 
-    // [FIX SPAM] Danh sách ID các quán ĐÃ BÁO rồi -> Không báo lại nữa
     private List<int> _triggeredPois = new List<int>();
 
+    // [THAY ĐỔI QUAN TRỌNG]
+    // 1. AppShell không nên tự new DatabaseService
+    // 2. Vì AppShell được tạo bằng new AppShell() trong App.xaml.cs,
+    //    nên ta không thể Tiêm Constructor trực tiếp vào đây dễ dàng được.
+    //    => Giải pháp: Dùng Handler.MauiContext.Services (Service Locator) để lấy DatabaseService chuẩn.
     public AppShell()
     {
         InitializeComponent();
 
         _locationService = new LocationService();
-        _dbService = new DatabaseService();
 
-        // Đăng ký định tuyến (Routing) cho các trang con
+        // Đăng ký Routing
         Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
         Routing.RegisterRoute(nameof(ScanPage), typeof(ScanPage));
         Routing.RegisterRoute(nameof(DetailPage), typeof(DetailPage));
         Routing.RegisterRoute(nameof(MapPage), typeof(MapPage));
 
-        // Bắt đầu chạy quét vị trí
-        StartGeofencing();
+        // [TỐI ƯU] Bắt đầu quét sau khi giao diện đã load xong 1 chút
+        // Để tránh tranh chấp tài nguyên lúc khởi động
+        Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(5), StartGeofencing);
     }
 
     private void StartGeofencing()
     {
-        _timer = Dispatcher.CreateTimer();
-        _timer.Interval = TimeSpan.FromSeconds(10); // Quét mỗi 10 giây
-        _timer.Tick += async (s, e) => await CheckProximity();
+        // Khởi đầu quét mỗi 10 giây
+        _timer = new System.Timers.Timer(10000);
+        _timer.Elapsed += async (s, e) => await CheckProximity();
+        _timer.AutoReset = false;
         _timer.Start();
     }
 
     private async Task CheckProximity()
     {
-        // Nếu đang quét dở thì bỏ qua lượt này
         if (_isScanning) return;
         _isScanning = true;
 
+        // Mặc định lần sau quét sau 10s
+        double nextInterval = 10000;
+
         try
         {
-            // 1. Lấy vị trí hiện tại
-            var myLocation = await _locationService.GetCurrentLocation();
-            if (myLocation == null) return;
+            // [MỚI] Lấy DatabaseService từ kho chung (Singleton)
+            // Đảm bảo dùng chung 1 kết nối với toàn bộ App
+            var dbService = Handler?.MauiContext?.Services.GetService<DatabaseService>();
 
-            // 2. Lấy danh sách quán từ DB
-            var pois = await _dbService.GetPOIsAsync();
-            if (pois == null || pois.Count == 0) return;
+            // Nếu chưa lấy được service hoặc chưa có GPS -> Thử lại sau
+            if (dbService == null)
+            {
+                RestartTimer(5000);
+                return;
+            }
+
+            var myLocation = await _locationService.GetCurrentLocation();
+            if (myLocation == null)
+            {
+                RestartTimer(5000); // Lỗi GPS -> Thử lại nhanh sau 5s
+                return;
+            }
+
+            var pois = await dbService.GetPOIsAsync();
+            if (pois == null || pois.Count == 0)
+            {
+                RestartTimer(10000);
+                return;
+            }
+
+            // --- THUẬT TOÁN TỐI ƯU PIN (ADAPTIVE POLLING) ---
+            double minDistance = double.MaxValue;
 
             foreach (var poi in pois)
             {
-                // [FIX SPAM] Nếu quán này đã báo rồi thì bỏ qua ngay
-                if (_triggeredPois.Contains(poi.Id)) continue;
-
-                // 3. Tính khoảng cách
-                double distanceKm = _locationService.CalculateDistance(
+                // Tính khoảng cách
+                double distanceKm = Location.CalculateDistance(
                     myLocation.Latitude, myLocation.Longitude,
-                    poi.Latitude, poi.Longitude);
-
+                    poi.Latitude, poi.Longitude, DistanceUnits.Kilometers);
                 double distanceMeters = distanceKm * 1000;
 
-                // 4. Nếu khoảng cách < 30 mét (đã đến nơi)
-                if (distanceMeters < 30)
+                if (distanceMeters < minDistance) minDistance = distanceMeters;
+
+                // Logic báo hiệu (Đến gần < 30m và chưa báo lần nào)
+                if (distanceMeters < 30 && !_triggeredPois.Contains(poi.Id))
                 {
-                    // [FIX SPAM] Đánh dấu là đã báo -> Lần sau quét sẽ bỏ qua
                     _triggeredPois.Add(poi.Id);
 
-                    // Rung điện thoại báo hiệu
-                    try { HapticFeedback.Perform(HapticFeedbackType.LongPress); } catch { }
-
-                    // Hiện thông báo hỏi người dùng
                     MainThread.BeginInvokeOnMainThread(async () =>
                     {
+                        try { HapticFeedback.Perform(HapticFeedbackType.LongPress); } catch { }
+
                         bool answer = await DisplayAlert("📍 Đã đến nơi!",
-                            $"Bạn đang đứng trước \"{poi.Name}\". \nBạn có muốn nghe thuyết minh không?",
+                            $"Bạn đang đứng trước \"{poi.Name}\". Nghe thuyết minh nhé?",
                             "Nghe luôn", "Để sau");
 
                         if (answer)
                         {
                             var navParam = new Dictionary<string, object>
                             {
-                                { "SelectedPoi", poi },
-                                { "AutoPlay", true } // Bật cờ tự động đọc
+                                { "SelectedPoi", poi }, { "AutoPlay", true }
                             };
-
-                            // Chuyển sang trang chi tiết
                             await Current.GoToAsync(nameof(DetailPage), navParam);
                         }
                     });
-
-                    // Đã tìm thấy 1 quán gần nhất thì break vòng lặp (tránh báo 2 quán cùng lúc)
-                    break;
                 }
             }
+
+            // --- QUYẾT ĐỊNH THỜI GIAN NGỦ ---
+            if (minDistance > 2000)
+                nextInterval = 60000; // Xa quá -> Ngủ 1 phút
+            else if (minDistance > 500)
+                nextInterval = 30000; // Xa vừa -> Ngủ 30s
+            else
+                nextInterval = 5000; // Đã vào vùng -> Quét gắt (5s/lần)
         }
         catch (Exception ex)
         {
@@ -110,6 +134,17 @@ public partial class AppShell : Shell
         finally
         {
             _isScanning = false;
+            RestartTimer(nextInterval);
+        }
+    }
+
+    private void RestartTimer(double interval)
+    {
+        if (_timer != null)
+        {
+            _timer.Stop();
+            _timer.Interval = interval;
+            _timer.Start();
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using StreetFood_App.Models;
 using StreetFood_App.Services;
-using Microsoft.Maui.Media; // Thư viện chứa TextToSpeech
-using System.Threading;     // Thư viện chứa CancellationToken
+using Plugin.Maui.Audio; // Thư viện âm thanh
+using Microsoft.Maui.Media; // Dùng cho TextToSpeech (Fallback)
 
 namespace StreetFood_App.Pages;
 
@@ -10,10 +10,16 @@ namespace StreetFood_App.Pages;
 public partial class DetailPage : ContentPage
 {
     private readonly DatabaseService _dbService;
+    private readonly IAudioManager _audioManager;
 
-    // Biến dùng để quản lý việc Đọc/Dừng Audio
-    private bool _isSpeaking = false;
-    private CancellationTokenSource _cts; // Token để hủy việc đọc
+    // Biến quản lý trình phát nhạc MP3
+    private IAudioPlayer _audioPlayer;
+
+    // Biến quản lý Text-to-Speech (TTS)
+    private CancellationTokenSource _cts;
+
+    // Biến trạng thái chung
+    private bool _isPlaying = false;
 
     public bool AutoPlay { get; set; }
 
@@ -25,14 +31,15 @@ public partial class DetailPage : ContentPage
         {
             _poi = value;
             OnPropertyChanged();
-            LoadMenuAsync(); // Load menu ngay khi có dữ liệu
+            LoadMenuAsync();
         }
     }
 
-    public DetailPage(DatabaseService dbService)
+    public DetailPage(DatabaseService dbService, IAudioManager audioManager)
     {
         InitializeComponent();
         _dbService = dbService;
+        _audioManager = audioManager;
         BindingContext = this;
     }
 
@@ -41,105 +48,131 @@ public partial class DetailPage : ContentPage
         base.OnAppearing();
         UpdateUiState();
 
-        // Xử lý tự động phát (từ Geofence hoặc Scan QR)
         if (AutoPlay)
         {
-            AutoPlay = false; // Reset cờ để không lặp lại
-            await Task.Delay(500); // Chờ UI ổn định
-            await SpeakNow();
+            AutoPlay = false;
+            await Task.Delay(500);
+            await PlayAudioLogic();
         }
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        // Khi rời trang -> Hủy đọc ngay lập tức
-        CancelSpeech();
-        _isSpeaking = false;
+        StopAudio(); // Dừng mọi âm thanh khi thoát trang
     }
 
-    // --- LOGIC XỬ LÝ AUDIO (ĐÃ FIX RÈ) ---
+    // --- LOGIC XỬ LÝ AUDIO (HYBRID: MP3 -> TTS) ---
 
     private async void OnSpeakClicked(object sender, EventArgs e)
     {
-        if (_isSpeaking)
+        if (_isPlaying)
         {
-            // Đang đọc -> Bấm thì Dừng
-            CancelSpeech();
-            _isSpeaking = false;
-            UpdateSpeakerButtonState(false);
+            StopAudio();
         }
         else
         {
-            // Đang im -> Bấm thì Đọc
-            await SpeakNow();
+            await PlayAudioLogic();
         }
     }
 
-    private async Task SpeakNow()
+    private async Task PlayAudioLogic()
     {
         if (SelectedPoi == null) return;
 
-        // 1. [QUAN TRỌNG] Hủy âm thanh cũ trước khi bắt đầu cái mới
-        CancelSpeech();
-
-        // 2. Tạo Token mới
-        _cts = new CancellationTokenSource();
-        _isSpeaking = true;
-        UpdateSpeakerButtonState(true);
-
-        string textToRead = $"Chào mừng bạn đến với {SelectedPoi.Name}. {SelectedPoi.Description}";
+        // 1. Dừng nhạc cũ/TTS cũ trước khi phát mới
+        StopAudio();
 
         try
         {
-            // Cấu hình giọng đọc tiếng Việt
-            var locales = await TextToSpeech.Default.GetLocalesAsync();
-            var viLocale = locales.FirstOrDefault(l => l.Language == "vi");
-            var options = new SpeechOptions
+            // CASE 1: ƯU TIÊN PHÁT FILE MP3 (NẾU CÓ)
+            if (!string.IsNullOrEmpty(SelectedPoi.AudioFile))
             {
-                Locale = viLocale,
-                Pitch = 1.0f,
-                Volume = 1.0f
-            };
+                // Load file từ Resources/Raw
+                var audioStream = await FileSystem.OpenAppPackageFileAsync(SelectedPoi.AudioFile);
 
-            // 3. Đọc (kèm Token để có thể hủy)
-            await TextToSpeech.Default.SpeakAsync(textToRead, options, _cts.Token);
+                _audioPlayer = _audioManager.CreatePlayer(audioStream);
+
+                _audioPlayer.PlaybackEnded += (s, e) =>
+                {
+                    _isPlaying = false;
+                    MainThread.BeginInvokeOnMainThread(() => UpdateSpeakerButtonState(false));
+                };
+
+                _audioPlayer.Play();
+                _isPlaying = true;
+                UpdateSpeakerButtonState(true);
+            }
+            // CASE 2: KHÔNG CÓ FILE MP3 -> FALLBACK SANG TTS (CHỊ GOOGLE)
+            else
+            {
+                _isPlaying = true;
+                UpdateSpeakerButtonState(true);
+
+                // Tạo Token hủy mới
+                _cts = new CancellationTokenSource();
+
+                // Cấu hình tiếng Việt
+                var locales = await TextToSpeech.Default.GetLocalesAsync();
+                var viLocale = locales.FirstOrDefault(l => l.Language == "vi");
+                var options = new SpeechOptions { Locale = viLocale, Pitch = 1.0f, Volume = 1.0f };
+
+                // Đọc văn bản mô tả (Truyền Token vào để có thể dừng)
+                await TextToSpeech.Default.SpeakAsync(SelectedPoi.Description, options, _cts.Token);
+
+                _isPlaying = false;
+                UpdateSpeakerButtonState(false);
+            }
         }
         catch (OperationCanceledException)
         {
-            // Bị hủy chủ động -> Không làm gì cả
+            // Bị dừng chủ động -> Không làm gì
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine("Lỗi TTS: " + ex.Message);
-        }
-        finally
-        {
-            // Kết thúc đọc (hoặc bị hủy) -> Reset trạng thái nút
-            _isSpeaking = false;
-            MainThread.BeginInvokeOnMainThread(() => UpdateSpeakerButtonState(false));
+            System.Diagnostics.Debug.WriteLine($"Lỗi Audio: {ex.Message}");
+            // Fallback cuối cùng
+            if (!_isPlaying) // Tránh loop
+            {
+                await TextToSpeech.Default.SpeakAsync("Xin lỗi, không thể phát nội dung này.");
+            }
+            _isPlaying = false;
+            UpdateSpeakerButtonState(false);
         }
     }
 
-    private void CancelSpeech()
+    private void StopAudio()
     {
-        // Hủy Token -> TextToSpeech sẽ dừng lại ngay
+        // 1. Dừng MP3 (nếu đang phát)
+        if (_audioPlayer != null && _audioPlayer.IsPlaying)
+        {
+            _audioPlayer.Stop();
+            _audioPlayer.Dispose();
+            _audioPlayer = null;
+        }
+
+        // 2. Dừng TTS (nếu đang đọc) -> [ĐÃ FIX LỖI Ở ĐÂY]
+        // Thay vì gọi CancelAsync(), ta hủy Token
         if (_cts != null && !_cts.IsCancellationRequested)
         {
             _cts.Cancel();
             _cts.Dispose();
             _cts = null;
         }
+
+        // 3. Reset trạng thái
+        _isPlaying = false;
+        UpdateSpeakerButtonState(false);
     }
 
-    private void UpdateSpeakerButtonState(bool isReading)
+    private void UpdateSpeakerButtonState(bool isPlaying)
     {
-        if (isReading)
+        if (isPlaying)
         {
             BtnSpeak.Text = "🤫 Dừng";
             BtnSpeak.BackgroundColor = Color.FromArgb("#FF5252");
             BtnSpeak.TextColor = Colors.White;
-            LblStatus.Text = "Đang đọc...";
+            LblStatus.Text = "Đang phát thuyết minh...";
         }
         else
         {
@@ -150,7 +183,7 @@ public partial class DetailPage : ContentPage
         }
     }
 
-    // --- CÁC LOGIC KHÁC ---
+    // --- CÁC LOGIC KHÁC GIỮ NGUYÊN ---
 
     private async void OnFavoriteClicked(object sender, EventArgs e)
     {
@@ -175,13 +208,10 @@ public partial class DetailPage : ContentPage
     private void UpdateUiState()
     {
         if (SelectedPoi == null) return;
-
-        // Cập nhật nút Tim
         BtnFavorite.Text = SelectedPoi.IsFavorite ? "❤️ Đã thích" : "🤍 Thích";
         BtnFavorite.BackgroundColor = SelectedPoi.IsFavorite ? Color.FromArgb("#FFCDD2") : Color.FromArgb("#FFEBEE");
         BtnFavorite.TextColor = SelectedPoi.IsFavorite ? Colors.Red : Color.FromArgb("#C62828");
 
-        // Cập nhật nút Sao
         if (SelectedPoi.UserRating > 0)
         {
             BtnRate.Text = $"{SelectedPoi.UserRating} ⭐";
@@ -198,11 +228,8 @@ public partial class DetailPage : ContentPage
     {
         if (SelectedPoi == null) return;
         var foods = await _dbService.GetFoodsAsync(SelectedPoi.Id);
-
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            // [FIX UI] Dùng BindableLayout để hiện danh sách mà không bị lỗi cuộn
-            // Lưu ý: Trong XAML phải đặt tên StackLayout là x:Name="MenuContainer"
             BindableLayout.SetItemsSource(MenuContainer, foods);
         });
     }

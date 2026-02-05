@@ -20,7 +20,7 @@ public class PointOfInterest
     public string Status { get; set; } = "Active";
 
     // Trường cũ (nếu bạn còn dùng file nhạc)
-    public string AudioFileName { get; set; }
+    public string AudioFile { get; set; }
 
     // [MỚI] Trạng thái Yêu thích (True/False)
     public bool IsFavorite { get; set; }

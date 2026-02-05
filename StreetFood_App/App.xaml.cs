@@ -1,24 +1,22 @@
-﻿using StreetFood_App.Services;
-
-namespace StreetFood_App;
+﻿namespace StreetFood_App;
 
 public partial class App : Application
 {
-    // [SỬA 1] Không cần biến _dbService ở đây nữa
-    // private readonly DatabaseService _dbService; 
-
-    public App(DatabaseService dbService)
+    // [SỬA LẠI] Bỏ tham số DatabaseService vì không còn dùng ở đây nữa
+    public App()
     {
         InitializeComponent();
-        // _dbService = dbService; // [SỬA 2] Bỏ dòng này luôn
+
+        // [QUAN TRỌNG]
+        // Đã xóa bỏ đoạn DependencyService.Register cũ kỹ.
+        // Bây giờ mọi thứ đã được MauiProgram lo liệu.
+
+        // [SỬA LẠI] Không gán MainPage ở đây nữa, để CreateWindow lo.
     }
 
     protected override Window CreateWindow(IActivationState activationState)
     {
-        // [SỬA 3 - QUAN TRỌNG NHẤT] 
-        // XÓA DÒNG NÀY ĐI: Task.Run(async () => await _dbService.SeedDataAsync());
-        // Lý do: HomeViewModel đã lo việc này rồi. Để lại là bị xung đột gây sập App.
-
+        // Chỉ tạo AppShell một lần duy nhất tại đây
         return new Window(new AppShell());
     }
 }
